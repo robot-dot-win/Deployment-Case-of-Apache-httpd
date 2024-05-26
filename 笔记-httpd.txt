@@ -1,0 +1,136 @@
+# CentOS 9 Stream, Apache httpd 2.4.57 配置笔记，2024-05-25
+#
+# 版权所有：Copyright (C) 2024, Martin Young <martin_young@live.cn>
+#---------------------------------------------------------------------------------------------
+
+安装
+========================================
+
+dnf install httpd mod_ssl
+systemctl enable httpd
+
+关于Virtual Host(文中简写vhost)
+========================================
+
+Apache vhost可以混合基于“IP地址+名字+端口”，相当复杂。当规划发生重大变化时务必温习：
+
+《An In-Depth Discussion of Virtual Host Matching - Apache HTTP Server Version 2.4》
+    https://httpd.apache.org/docs/2.4/vhosts/details.html
+《VirtualHost Examples - Apache HTTP Server Version 2.4》
+    https://httpd.apache.org/docs/2.4/vhosts/examples.html
+
+Apache在httpd.conf中定义了一个'main' or 'default' server(注意是server而非host)，它的作用是：
+1、当无法以“IP地址+名字+端口”配匹到任何<VirtualHost>时，它就是处理客户端请求的host；
+2、为所有的<VirtualHost>提供默认值。
+
+<VirtualHost>小节中出现的星号，表示所有匹配的IP地址或者端口都定义过了，例如<VirtualHost *:80>表示
+80端口的所有IP地址都定义了vhost，对任何IP地址上80端口的访问，都不会跑到main server那儿去了。而
+<VirtualHost *>（等同于<VirtualHost *:*>；任何不带端口号的<VirtualHost>定义都表示所有端口）则表示
+所有IP和所有端口号都定义了vhost，永远不会跑到main server那儿去。
+
+<VirtualHost>的顺序很重要。当主机名匹配不上所有vhost的时候，第一个<*:端口> 的vhost被使用，就
+是所谓的primary vhost了。原文：
+The asterisks(*) match all addresses, so the main server serves no requests. The first virtual
+host in the configuration file has the highest priority and can be seen as the default or primary
+server. That means that if a request is received that does not match one of the specified ServerName
+directives, it will be served by this first <VirtualHost>.
+
+还有一个就是<VirtualHost _default_:port>，经测试，_default_与星号为同一优先级，二者是一致的。
+
+当定义两个相同servername的vhost时，只有第一个起作用，后面的并不会override。
+
+Apache 2.4官网《VirtualHost Examples - Apache HTTP Server Version 2.4》中“_default_ virtual hosts
+for different ports”部分，定义了一个<VirtualHost _default_:80>和<VirtualHost _default_:*>，并且说
+“The default virtual host for port 80 (which must appear before any default virtual host with a
+wildcard port)...”是不对的，经测试，带具体端口号的<VirtualHost>不论在前还是在后，都比星端口号的优
+先级高。
+
+listen指令不允许override，每个端口号在全部配置文件中只能出现一次。
+
+vhost的定义，需要确定一套自己的规则，有规则就不会错乱。
+
+配置文件的组织结构
+========================================
+
+httpd配置内容可分为3个部分（层次）：
+
+# The configuration directives are grouped into three basic sections:
+#
+#  1. Directives that control the operation of the Apache server process as a
+#     whole (the 'global environment').
+#
+#  2. Directives that define the parameters of the 'main' or 'default' server,
+#     which responds to requests that aren't handled by a virtual host.
+#     These directives also provide default values for the settings of all virtual hosts,
+#     in spite of the orders they are defined.  （This line is added by Martin, 2017.11.11）
+#
+#  3. Settings for virtual hosts, which allow Web requests to be sent to
+#     different IP addresses or hostnames and have them handled by the
+#     same Apache server process.
+
+配置文件目录结构：
+
+/etc/httpd/conf/		    默认主文件httpd.conf在这里；它include conf.modules.d/*.conf，IncludeOptional conf.d/*.conf
+	      /conf.modules.d/	模块装载文件，文件名按模块功能分类
+    	  /conf.d/		    各模块配置文件（例如ssl等）
+
+设计思路
+========================================
+
+由于配置文件都是在编程/测试环境修改/调试后再上传到生产环境，因此容易定位/修改/上传的目标越简单
+/集中越好，这就要求配置文件容易定位/独立/数量少。据此采取如下原则：
+
+. 最大可能地不修改原始配置文件，方便随时升级/重装/迁移。需要修改的参数尽可能对原配置进行override。
+. 适用于多个服务器。
+. 使用Apache预置文件制作出一套统一的conf、conf.d、conf.modules.d模板供所有Apache服务器使用（仅备
+  份修改过的文件）；新装的服务器直接覆盖过去即可。
+. 适用于所有服务器的全局配置，都写在一个common.conf文件中（包含针对默认参数的必要的override），放
+  在conf.d下面自动include，作为全部客户化配置的入口。
+. 检查conf.modules.d下，仅装载基本运行所需模块，其他模块注掉，需要时再配置上。
+. 定义一个<VirtualHost _default_:*>以接管意外所有未定义的服务，防止进入main server，同时返回404以
+  满足备案合规。
+. 只使用Named virtual host而不使用IP based virtual host；每个vhost都不定义ServerAlias。
+. 所有网站都使用Named vhost来明确定义，尽量只使用80和443端口。每个端口定义一个Primary Virtual Host
+ （顺序排第一位的那个），功能仅仅是处理该端口的所有意外访问。
+. 原始ssl.conf文件改造：删除vhost定义部分，其他都保留作为默认设置。注意：如果ssl.conf文件不存在，
+  则mod_ssl每次升级时就会在这里放上一个原始的。
+. 所有vhost都以httpd.conf定义的main server的docroot为默认docroot。必要时进行override。
+. 日志按vhost名+端口号组织文件名，便于定位和检索。
+
+据此，搞出一套自己的模板，组织结构如下：
+
+/etc/httpd/conf/		               原始配置文件，不做任何修改
+/etc/httpd/conf.modules.d/	           修改原始配置文件：仅装载基本运行所需模块
+/etc/httpd/conf.d/		               修改各模块原始配置文件
+/etc/httpd/conf.d/zz0-common.conf      通用全局配置文件（适用所有服务器）
+/etc/httpd/conf.d/zz1-domains.conf     服务器专用配置文件（它IncludeOptional domain-*/*.conf）
+/etc/httpd/domain-<域名>/<vhost>.conf  各域下各个vhost配置文件（同一名字的不同协议、不同端口写在同一个文件中）
+
+关于HTTPS
+========================================
+
+实现HTTPS需要安装mod_ssl。安装后会产生一个 conf.d/ssl.conf 文件，里面设置了一些SSL全局参数（作用
+于所有SSL协议），并定义了443端口的primary virtual host。
+
+SSL vhost实现方法的演变历史：
+
+. 最古老开始是“一个站点+一个IP+一个证书”的一一对应；
+. 然后：一台服务器多个IP分别对应不同的站点、不同的证书；
+. 然后：一台服务器一个IP的多个端口号对应不同的站点、不同的证书；
+. 现在：SNI（Server Name Indication）实现同一端口号上多个虚拟站点(多域名、泛域名支持)
+
+SSL证书：
+
+. 如果使用官方签发的，各操作系统都预置了根证书，浏览器不会弹出警告提示。
+. 测试环境和不怕中间人攻击的正式环境，可以使用自制的SSL证书（12306网站刚开始就是这样干的，头铁）。
+. 无论官发还是自制，都是两个步骤：申请，签发。
+. 申请步骤生成.csr文件。签发可以3种方式：发送官方机构请求签名（付银子）；自建CA签名；使用.csr产生的私钥自签名。
+
+CentOS上操作证书：
+
+.申请：  openssl req -new -newkey rsa:4096 -nodes -keyout private/domain.key -out certs/domain.csr
+.自签名：openssl x509 -req -days 3650 -signkey private/domain.key -out certs/domain.crt -in certs/domain.csr
+
+网站SSL状态在线检测：
+https://myssl.com/ssl.html
+https://www.ssllabs.com/ssltest/

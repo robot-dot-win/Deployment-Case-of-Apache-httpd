@@ -1,0 +1,134 @@
+# CentOS 9 Stream, certbot 2.9.0 配置笔记，2024-05-25
+#
+# 版权所有：Copyright (C) 2024, Martin Young <martin_young@live.cn>
+#---------------------------------------------------------------------------------------------
+
+安装
+========================
+
+先安装EPEL 9：https://docs.fedoraproject.org/en-US/epel/
+
+dnf install certbot
+systemctl enable --now certbot-renew.timer
+
+发行版没有man，官网可以下载手册。也可以看帮助：
+certbot -h      基本帮助
+certbot -h all  详细帮助
+
+配置
+========================
+
+certbot功能是与Let's Encrypt进行交互，确认网站所有者的身份，然后申请证书。另外一个功能是自动更新
+证书。这使用所谓的ACME(Automatic Certificate Management Environment)协议。
+关于ACME：https://github.com/ietf-wg-acme/acme/tree/master
+
+常用ACME challenge方式：
+
+. http-01	certbot在网站根目录下生成/.well-known/acme-challenge/*，然后让Let's Encrypt的CA端过来取，能取到就说明网站是你的。
+. dns-01	Let's Encrypt的CA端给你一个TXT记录值，让你设置域名解析记录。
+
+http-01方式容易实现自动化。必须保证80端口网站已经正常上线。服务器可以看到的日志：
+66.133.109.36 - - [25/Nov/2017:17:22:47 +0800] "GET /.well-known/acme-challenge/SE-jPsaMdD21zRpwbqdIPqKAY9gFO0Zfgg2bFgc3Q10 HTTP/1.1" 200 107
+
+配置文件：
+/etc/sysconfig/certbot		环境参数、钩子；我们通常不在这儿配置
+/etc/letsencrypt/renewal/	这下面是各证书的自动更新配置信息，是初次申请时自动生成的，通常不用修改；日志中如果出现错误则应考虑这里有问题
+
+Let's Encrypt免费证书有效期3个月，certbot使用timer定时运行certbot-renew.service自动更新证书。
+手册中建议每天执行两次。可查看：
+systemctl list-timers certbot*
+systemctl cat certbot-renew.timer
+
+如果要设置自己的证书更新时间和频度，则：
+systemctl edit certbot-renew.timer
+
+例如：
+[Timer]
+OnCalendar=Mon-Sat *-*-* 06:00:00
+RandomizedDelaySec=10minutes
+
+certbot renew 可带参数：
+
+--quiet
+--deploy-hook </path/to/deploy-hook-script>     这是更新了证书以后自动执行的脚本
+
+这个脚本也可以直接放在这个目录下面而不必写在命令行参数中：
+/etc/letsencrypt/renewal-hooks/deploy/
+
+通常将重启apache httpd的命令写在脚本reload_httpd.sh中，以便证书更新后自动重启。
+
+日志在 /var/log/letsencrypt/ ，非常详细。
+
+初次获取证书
+========================
+
+交互方式：
+
+[root@www]# certbot certonly -d www.foo.com
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+
+How would you like to authenticate with the ACME CA?
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+1: Runs an HTTP server locally which serves the necessary validation files under
+the /.well-known/acme-challenge/ request path. Suitable if there is no HTTP
+server already running. HTTP challenge only (wildcards not supported).
+(standalone)
+2: Saves the necessary validation files to a .well-known/acme-challenge/
+directory within the nominated webroot path. A seperate HTTP server must be
+running and serving files from the webroot path. HTTP challenge only (wildcards
+not supported). (webroot)
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Select the appropriate number [1-2] then [enter] (press 'c' to cancel): 2
+Requesting a certificate for www.foo.com
+Input the webroot for www.foo.com: (Enter 'c' to cancel): /var/www/html
+
+Successfully received certificate.
+Certificate is saved at: /etc/letsencrypt/live/www.foo.com/fullchain.pem
+Key is saved at:         /etc/letsencrypt/live/www.foo.com/privkey.pem
+This certificate expires on 2024-08-21.
+These files will be updated when the certificate renews.
+Certbot has set up a scheduled task to automatically renew this certificate in the background.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+If you like Certbot, please consider supporting our work by:
+ * Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
+ * Donating to EFF:                    https://eff.org/donate-le
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+也可以全写在命令行中：
+
+certbot certonly --webroot -w /var/www/html -d www.foo.com --preferred-challenges http-01
+certbot certonly --webroot -w /var/www/html -d www.foo.com --preferred-challenges dns-01
+
+使用证书
+========================
+
+参见certbot手册的Where are my certificates。
+
+httpd<V2.4.8版本的配置如下：
+
+ SSLCertificateFile      /etc/letsencrypt/live/www.foo.com/cert.pem
+ SSLCertificateKeyFile   /etc/letsencrypt/live/www.foo.com/privkey.pem
+ SSLCertificateChainFile /etc/letsencrypt/live/www.foo.com/chain.pem
+
+httpd>=V2.4.8版本的配置如下：
+
+ SSLCertificateFile      /etc/letsencrypt/live/www.foo.com/fullchain.pem
+ SSLCertificateKeyFile   /etc/letsencrypt/live/www.foo.com/privkey.pem
+
+删除/吊销证书
+========================
+
+certbot delete --cert-name www.foo.com	仅从本地删除；复制到其他地方的仍然可用
+certbot revoke --cert-name www.foo.com	吊销
+
+需经常检查日志错误信息
+========================
+
+如果直接复制老服务器上的 /etc/letsencrypt/ 目录到新服务器上，则可能出现错误信息。通过
+修改 /etc/letsencrypt/renewal/ 的配置文件可以解决；或者全部吊销重新申请证书也可以。
+
+备忘
+========================
+apache httpd 2.4.30版本开始有一个mod_md模块，可以使用httpd自动更新证书。
+感觉不如使用certbot简单方便。
