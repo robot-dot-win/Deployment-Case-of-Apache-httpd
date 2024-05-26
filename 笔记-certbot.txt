@@ -1,4 +1,4 @@
-# CentOS 9 Stream, certbot 2.9.0 配置笔记，2024-05-25
+# CentOS 9 Stream, certbot 2.9.0 配置笔记，2024-05-27
 #
 # 版权所有：Copyright (C) 2024, Martin Young <martin_young@live.cn>
 #---------------------------------------------------------------------------------------------
@@ -98,7 +98,6 @@ If you like Certbot, please consider supporting our work by:
 也可以全写在命令行中：
 
 certbot certonly --webroot -w /var/www/html -d www.foo.com --preferred-challenges http-01
-certbot certonly --webroot -w /var/www/html -d www.foo.com --preferred-challenges dns-01
 
 使用证书
 ========================
