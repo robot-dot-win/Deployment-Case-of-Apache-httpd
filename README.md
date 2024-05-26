@@ -46,7 +46,7 @@
 7、按以下步骤定义SSL网站：
 - 修改`conf.d/zz1-domains.conf`，定义各SSL端口的primary virtual host。注意检查确认`PrimaryVHost`变量所指的网站已经申请了SSL证书。
 - 重启httpd服务，检查httpd服务的状态，如果确认成功，说明`PrimaryVHost`变量所指的网站SSL证书配置成功。
-- 根据实际需求，参照`domain-foo.com/*.tpl`模板配置文件，重新定义各个SSL和非SSL网站的Virtual Host。
+- 根据实际需求，参照`domain-foo.com/*.conf.tpl`模板配置文件，重新定义各个SSL和非SSL网站的Virtual Host。
 - 反复调试、修改，直至实现全部网站功能。其间可能会需要一些未加载的模块，此时可把`LoadModule`写在`conf.d/zz1-domains.conf`中。
 
 8、网站上线后，设置shell脚本`/etc/letsencrypt/renewal-hooks/deploy/reload_httpd.sh`，以便certbot自动更新证书后自动重启httpd服务。
