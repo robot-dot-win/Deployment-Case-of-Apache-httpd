@@ -70,9 +70,9 @@ httpd配置内容可分为3个部分（层次）：
 
 配置文件目录结构：
 
-/etc/httpd/conf/		    默认主文件httpd.conf在这里；它include conf.modules.d/*.conf，IncludeOptional conf.d/*.conf
-	      /conf.modules.d/	模块装载文件，文件名按模块功能分类
-    	  /conf.d/		    各模块配置文件（例如ssl等）
+/etc/httpd/conf/            默认主文件httpd.conf在这里；它include conf.modules.d/*.conf，IncludeOptional conf.d/*.conf
+          /conf.modules.d/  模块装载文件，文件名按模块功能分类
+          /conf.d/          各模块配置文件（例如ssl等）
 
 设计思路
 ========================================
@@ -99,9 +99,9 @@ httpd配置内容可分为3个部分（层次）：
 
 据此，搞出一套自己的模板，组织结构如下：
 
-/etc/httpd/conf/		               原始配置文件，不做任何修改
-/etc/httpd/conf.modules.d/	           修改原始配置文件：仅装载基本运行所需模块
-/etc/httpd/conf.d/		               修改各模块原始配置文件
+/etc/httpd/conf/                       原始配置文件，不做任何修改
+/etc/httpd/conf.modules.d/             修改原始配置文件：仅装载基本运行所需模块
+/etc/httpd/conf.d/                     修改各模块原始配置文件
 /etc/httpd/conf.d/zz0-common.conf      通用全局配置文件（适用所有服务器）
 /etc/httpd/conf.d/zz1-domains.conf     服务器专用配置文件（它IncludeOptional domain-*/*.conf）
 /etc/httpd/domain-<域名>/<vhost>.conf  各域下各个vhost配置文件（同一名字的不同协议、不同端口写在同一个文件中）
