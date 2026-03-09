@@ -134,3 +134,9 @@ CentOS上操作证书：
 网站SSL状态在线检测：
 https://myssl.com/ssl.html
 https://www.ssllabs.com/ssltest/
+
+运行调优
+========================================
+
+针对生产环境，可将配置信息告诉AI，请AI针对运行环境和httpd配置参数进行调优。
+其中，运行环境包括Linux内核参数（/etc/sysctl.conf）和systemd的httpd.service参数等，不再详述。
