@@ -8,7 +8,7 @@
 这些修改的目的是仅加载最基本的功能模块，以期形成一套基础配置模
 板。
 
-源文件来源：CentOS Stream 9, Apache httpd 2.4.57
+源文件来源：CentOS Stream 10, Apache httpd 2.4.63
 
 --
-2024-05-24
+2026-05-06

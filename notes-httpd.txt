@@ -1,4 +1,4 @@
-# CentOS 9 Stream, Apache httpd 2.4.57 配置笔记，2024-05-25
+# CentOS Stream 10, Apache httpd 2.4.63 配置笔记，2026-05-06
 #
 # 版权所有：Copyright (C) 2024, Martin Young <martin_young@live.cn>
 #---------------------------------------------------------------------------------------------

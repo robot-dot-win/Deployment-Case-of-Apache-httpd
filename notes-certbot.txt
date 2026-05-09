@@ -1,4 +1,4 @@
-# CentOS 9 Stream, certbot 2.9.0 配置笔记，2024-05-27
+# CentOS Stream 10, certbot 4.2.0 配置笔记，2026-05-06
 #
 # 版权所有：Copyright (C) 2024, Martin Young <martin_young@live.cn>
 #---------------------------------------------------------------------------------------------
@@ -6,7 +6,8 @@
 安装
 ========================
 
-先安装EPEL 9：https://docs.fedoraproject.org/en-US/epel/
+先安装EPEL 10：
+https://docs.fedoraproject.org/en-US/epel/
 
 dnf install certbot
 systemctl enable --now certbot-renew.timer
@@ -32,7 +33,7 @@ http-01方式容易实现自动化。必须保证80端口网站已经正常上�
 
 配置文件：
 /etc/sysconfig/certbot		环境参数、钩子；我们通常不在这儿配置
-/etc/letsencrypt/renewal/	这下面是各证书的自动更新配置信息，是初次申请时自动生成的，通常不用修改；日志中如果出现错误则应考虑这里有问题
+/etc/letsencrypt/renewal/	这下面是各证书的自动更新配置信息，是初次申请时自动生成的
 
 Let's Encrypt免费证书有效期3个月，certbot使用timer定时运行certbot-renew.service自动更新证书。
 手册中建议每天执行两次。可查看：
@@ -120,12 +121,6 @@ httpd>=V2.4.8版本的配置如下：
 
 certbot delete --cert-name www.foo.com	仅从本地删除；复制到其他地方的仍然可用
 certbot revoke --cert-name www.foo.com	吊销
-
-需经常检查日志错误信息
-========================
-
-如果直接复制老服务器上的 /etc/letsencrypt/ 目录到新服务器上，则可能出现错误信息。通过
-修改 /etc/letsencrypt/renewal/ 的配置文件可以解决；或者全部吊销重新申请证书也可以。
 
 备忘
 ========================

@@ -24,7 +24,7 @@
 
 ## 模板
 
-1、适用于RHEL 9/CentOS Stream 9/Rocky Linux 9/AlmaLinux 9。本仓库内容全部基于CentOS Stream 9。
+1、适用于RHEL 10/CentOS Stream 10/Rocky Linux 10/AlmaLinux 10。本仓库内容全部基于CentOS Stream 10。
 
 2、安装httpd、mod_ssl。
 
